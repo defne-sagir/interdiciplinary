@@ -3,50 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ImmunoTwin | Point-of-Care CRP Dashboard</title>
+  <title>ImmunoTwin | Point-of-Care CRP Dijital İkizi</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body data-persona="tester">
+  <!-- 1. ÜST MENÜ & KULLANICI PROFİLİ SEKMELERİ -->
   <header class="topbar">
     <div class="brand">
       <div class="logo-dot"></div>
       <div>
         <h1>ImmunoTwin</h1>
-        <span>Mikroakışkan POC Biyosensör Dijital İkizi</span>
+        <span>Mikroakışkan POC CRP Biyosensör Dijital İkizi</span>
       </div>
     </div>
+
+    <nav class="persona-nav">
+      <button class="persona-btn" data-persona="patient" onclick="setPersona('patient')">Hasta / Ev</button>
+      <button class="persona-btn" data-persona="doctor" onclick="setPersona('doctor')">Doktor / Klinik</button>
+      <button class="persona-btn active" data-persona="tester" onclick="setPersona('tester')">Test Ekibi (Simülatör)</button>
+    </nav>
+
     <div class="device-status">
       <span id="connection-badge" class="badge online">ESP32 Simülasyon: Hazır</span>
+      <span id="battery-indicator" class="meta-pill">Pil: %92</span>
       <span id="clock">--:--:--</span>
     </div>
   </header>
 
   <main class="container">
-    <section class="card patient-card">
-      <h2>Aktif Test Bilgileri</h2>
-      <div class="form-grid">
-        <div class="input-group">
-          <label>Hasta Adı / ID</label>
-          <input type="text" id="patient-id" value="HST-2026-042" placeholder="Hasta Kodu">
-        </div>
-        <div class="input-group">
-          <label>Kaset Lot No</label>
-          <input type="text" id="cassette-id" value="CRP-OPT-09" readonly>
-        </div>
-        <div class="input-group">
-          <label>Cihaz Durumu</label>
-          <input type="text" id="device-state" value="Kaset Takılı - Ölçüme Hazır" readonly>
-        </div>
+    <!-- ÜST ÖZET DEĞERLER ŞERİDİ -->
+    <section class="summary-strip">
+      <div class="summary-item">
+        <span>Son CRP Ölçümü</span>
+        <strong id="summary-last-crp">2.9 mg/L</strong>
+      </div>
+      <div class="summary-item">
+        <span>Risk Durumu</span>
+        <strong id="summary-risk-badge" style="color:#16a34a;">NORMAL</strong>
+      </div>
+      <div class="summary-item">
+        <span>Cihaz Durumu</span>
+        <strong id="summary-device-state">Kaset Takılı - Hazır</strong>
+      </div>
+      <div class="summary-item">
+        <span>Toplam Kayıt</span>
+        <strong id="summary-total-tests">5 Kayıt</strong>
       </div>
     </section>
 
-    <section class="dashboard-grid">
+    <!-- 2. ORTA BÖLÜM: ÖLÇÜM EKRANI + MERKEZDE WOKWI SİMÜLASYONU -->
+    <section class="center-workspace">
+      <!-- SOL: UI-01 ÖLÇÜM BAŞLATMA & UI-02 SONUÇ KARTI -->
       <div class="card result-card" id="result-card">
         <div class="card-header">
-          <h3>Kantitatif CRP Konsantrasyonu</h3>
-          <span class="unit">Referans Eşik: &lt; 5.0 mg/L</span>
+          <h3>CRP Ölçüm & Sonuç Ekranı</h3>
+          <span class="unit">Kritik Eşik: &ge; 5.0 mg/L</span>
         </div>
 
+        <!-- UI-01: Ölçümü Başlat & Progress Bar -->
+        <div class="measure-box">
+          <button id="btn-start-measure" class="btn-primary-large" onclick="startMeasurement()">
+            Ölçümü Başlat
+          </button>
+          <div id="progress-wrapper" class="progress-wrapper hidden">
+            <div class="progress-meta">
+              <span id="progress-text">Hazırlanıyor...</span>
+              <span id="progress-timer">1.5 sn</span>
+            </div>
+            <div class="progress-track">
+              <div id="progress-bar" class="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- UI-02: Sayısal Sonuç & Renk Kodlu Durum -->
         <div class="value-display">
           <span id="crp-value">--.-</span>
           <span class="mg-unit">mg/L</span>
@@ -57,55 +88,98 @@
         </div>
 
         <p id="clinical-note" class="clinical-note">
-          Cihaz üzerindeki butona basarak veya aşağıdaki test simülasyonu ile ölçümü başlatın.
+          Ölçümü başlatmak için yukarıdaki butona veya ortadaki Wokwi devresindeki yeşil butona basın.
         </p>
+
+        <!-- Doktor & Test Ekibi İçin Teknik Metrikler -->
+        <ul class="metric-list only-doctor-tester">
+          <li><span>Hasta ID:</span><input type="text" id="patient-id" value="HST-2026-042" class="inline-input"></li>
+          <li><span>Ham Optik Okuma (LDR):</span><strong id="raw-lux">-</strong></li>
+          <li><span>Analiz / İletim Süresi:</span><strong>1.5 sn / 0.2 sn</strong></li>
+        </ul>
       </div>
 
-      <div class="card metrics-card">
-        <h3>Klinik &amp; Sensör Metrikleri</h3>
-        <ul class="metric-list">
-          <li>
-            <span>Sensör Tipi:</span>
-            <strong>Optik (Lateks Bulanıklık / LDR)</strong>
-          </li>
-          <li>
-            <span>Ham Optik Okuma (Lux):</span>
-            <strong id="raw-lux">-</strong>
-          </li>
-          <li>
-            <span>Test Süresi (Hedef &lt; 60 sn):</span>
-            <strong id="test-duration">1.5 sn</strong>
-          </li>
-          <li>
-            <span>Veri İletim Gecikmesi (Hedef &lt; 2 sn):</span>
-            <strong id="latency">0.2 sn</strong>
-          </li>
-        </ul>
-
-        <div class="demo-controls">
-          <p>Arayüz Ön İzleme (Manuel Veri Gönder):</p>
-          <div class="btn-row">
-            <button onclick="updateCRPData(2.4, 3450)" class="btn btn-normal">Normal Test (2.4 mg/L)</button>
-            <button onclick="updateCRPData(18.7, 1200)" class="btn btn-danger">Yüksek Risk (18.7 mg/L)</button>
-          </div>
+      <!-- ORTA: WOKWI ESP32 DONANIM SİMÜLASYONU -->
+      <div class="card wokwi-card">
+        <div class="card-header">
+          <h3>Canlı ESP32 & OLED Donanım Simülasyonu (Wokwi)</h3>
+          <a href="https://wokwi.com/projects/478970934070449153" target="_blank" class="unit">Tam Ekran Aç ↗</a>
+        </div>
+        <div class="wokwi-frame-wrapper">
+          <iframe
+            src="https://wokwi.com/projects/478970934070449153?embed=1"
+            title="POC CRP Wokwi Simülasyonu"
+            loading="lazy">
+          </iframe>
         </div>
       </div>
     </section>
 
-    <section class="card history-card">
-      <h3>Son Klinik Ölçüm Kayıtları</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Saat</th>
-            <th>Hasta Kodu</th>
-            <th>CRP Değeri (mg/L)</th>
-            <th>Klinik Sınıflandırma</th>
-            <th>Durum</th>
-          </tr>
-        </thead>
-        <tbody id="history-body"></tbody>
-      </table>
+    <!-- UI-04: SİMÜLATÖR KONTROL PANELİ (Sadece Test Ekibi Profilinde Açık) -->
+    <section class="card simulator-card only-tester">
+      <div class="card-header">
+        <h3>UI-04 | Yazılım & Test Ekibi Simülatör Kontrol Paneli</h3>
+        <span class="unit">ESP32 map(ldr, 0, 4095, 150, 0)</span>
+      </div>
+
+      <div class="sim-grid">
+        <div class="sim-control">
+          <label>Hedef CRP Değeri (0.0 - 150.0 mg/L):</label>
+          <div class="slider-row">
+            <input type="range" id="sim-crp-slider" min="0" max="150" step="0.1" value="2.4" oninput="syncFromCRP(this.value)">
+            <input type="number" id="sim-crp-input" min="0" max="150" step="0.1" value="2.4" oninput="syncFromCRP(this.value)">
+          </div>
+        </div>
+
+        <div class="sim-control">
+          <label>Ham LDR Optik Sensör Değeri (0: Bulanık - 4095: Şeffaf):</label>
+          <div class="slider-row">
+            <input type="range" id="sim-ldr-slider" min="0" max="4095" step="1" value="4029" oninput="syncFromLDR(this.value)">
+            <input type="number" id="sim-ldr-input" min="0" max="4095" step="1" value="4029" oninput="syncFromLDR(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <div class="fault-controls">
+        <span>Cihaz & Hata Senaryoları:</span>
+        <button class="btn btn-normal" onclick="updateCRPData(2.1, 4038)">Hızlı Normal (2.1)</button>
+        <button class="btn btn-warning" onclick="updateCRPData(4.2, 3980)">Hızlı Sınırda (4.2)</button>
+        <button class="btn btn-danger" onclick="updateCRPData(18.7, 3584)">Hızlı Yüksek Risk (18.7)</button>
+        <button class="btn btn-warning" onclick="simulateFault('LOW_BATTERY')">Düşük Pil Simüle Et</button>
+        <button class="btn btn-danger" onclick="simulateFault('SENSOR_ERROR')">Sensör Hatası Simüle Et</button>
+        <button class="btn btn-neutral" onclick="simulateFault('RESET')">Cihazı Sıfırla</button>
+      </div>
+
+      <div id="serial-console" class="serial-console"></div>
+    </section>
+
+    <!-- 3. ALT BÖLÜM: UI-03 GEÇMİŞ VERİ GRAFİĞİ & KLİNİK KAYITLAR -->
+    <section class="bottom-analytics only-doctor-tester">
+      <div class="card chart-card">
+        <div class="card-header">
+          <h3>UI-03 | Zamana Bağlı CRP Trend Grafiği</h3>
+          <button class="btn btn-neutral" onclick="resetHistory()">Geçmişi Sıfırla</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="crpChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card history-card">
+        <h3>Son Ölçüm Kayıtları</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Zaman</th>
+              <th>Hasta ID</th>
+              <th>CRP (mg/L)</th>
+              <th>Ham LDR</th>
+              <th>Durum</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
