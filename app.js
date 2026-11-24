@@ -3,32 +3,30 @@
 // Gereksinimler: UI-01, UI-02, UI-03, UI-04 & 3 Kullanıcı Profili
 // =========================================================
 
-let currentPersona = 'tester'; // Varsayılan: Test Ekibi (Tüm paneller görünür)
+let currentPersona = 'tester';
 let deviceStatus = 'READY';    // READY | MEASURING | LOW_BATTERY | SENSOR_ERROR
 let batteryLevel = 92;
 let crpChart = null;
 
-// Örnek geçmiş veriler (UI-03 Line Chart'ın ilk açılışta dolu görünmesi için)
 const defaultMeasurements = [
-  { time: '10 Kas 09:15', patientId: 'HST-2026-042', crp: 2.1, ldr: 3522, risk: 'NORMAL' },
-  { time: '11 Kas 14:30', patientId: 'HST-2026-042', crp: 3.8, ldr: 3058, risk: 'SINIRDA' },
-  { time: '12 Kas 11:05', patientId: 'HST-2026-042', crp: 8.4, ldr: 1802, risk: 'YUKSEK' },
-  { time: '13 Kas 16:45', patientId: 'HST-2026-042', crp: 6.2, ldr: 2402, risk: 'YUKSEK' },
-  { time: '14 Kas 10:20', patientId: 'HST-2026-042', crp: 2.9, ldr: 3303, risk: 'NORMAL' }
+  { time: '10 Kas 09:15', patientId: 'HST-2026-042', crp: 2.1, ldr: 4038, risk: 'NORMAL' },
+  { time: '11 Kas 14:30', patientId: 'HST-2026-042', crp: 3.8, ldr: 3991, risk: 'SINIRDA' },
+  { time: '12 Kas 11:05', patientId: 'HST-2026-042', crp: 8.4, ldr: 3866, risk: 'YUKSEK' },
+  { time: '13 Kas 16:45', patientId: 'HST-2026-042', crp: 6.2, ldr: 3926, risk: 'YUKSEK' },
+  { time: '14 Kas 10:20', patientId: 'HST-2026-042', crp: 2.9, ldr: 4016, risk: 'NORMAL' }
 ];
 
 let measurements = JSON.parse(localStorage.getItem('immunotwin_logs')) || [...defaultMeasurements];
 
-// Sayfa yüklendiğinde başlat
 document.addEventListener('DOMContentLoaded', () => {
   setPersona('tester');
+  syncFromCRP(2.4);
   initChart();
   renderHistoryTable();
   updateTopSummary();
   logSerial('Sistem baslatildi. ESP32-Wokwi baglantisi hazir.');
 });
 
-// Canlı saat
 setInterval(() => {
   const clockEl = document.getElementById('clock');
   if (clockEl) clockEl.textContent = new Date().toLocaleTimeString('tr-TR');
@@ -60,7 +58,7 @@ function startMeasurement() {
   if (deviceStatus === 'MEASURING') return;
 
   if (deviceStatus === 'SENSOR_ERROR') {
-    alert('Sensör Hatası! Lütfen önce simülatör panelinden cihazı sıfırlayın.');
+    simulateFault('SENSOR_ERROR');
     logSerial('[HATA] Olcum reddedildi: Optik sensor (GPIO 34) yanit vermiyor.');
     return;
   }
@@ -77,7 +75,6 @@ function startMeasurement() {
   progressWrapper.classList.remove('hidden');
   updateTopSummary('Analiz Ediliyor...');
 
-  // Betül'ün ESP32 kodundaki delay(1500) süresini birebir simüle ediyoruz
   const totalDuration = 1500;
   const intervalStep = 50;
   let elapsed = 0;
@@ -103,11 +100,9 @@ function startMeasurement() {
     if (elapsed >= totalDuration) {
       clearInterval(timer);
 
-      // Simülatör slider'ındaki mevcut LDR değerini oku
       const currentLdr = parseInt(document.getElementById('sim-ldr-input').value, 10);
       const calculatedCrp = ldrToCrp(currentLdr);
 
-      // Cihaz durumunu önceki hata/pil durumuna geri döndür
       deviceStatus = batteryLevel <= 15 ? 'LOW_BATTERY' : 'READY';
       btn.disabled = false;
       btn.textContent = 'Ölçümü Başlat';
@@ -123,8 +118,7 @@ function startMeasurement() {
 }
 
 // ---------------------------------------------------------
-// 3. UI-02 & ENTEGRASYON: VERİ GÜNCELLEME VE RENK KODLAMA
-// (Wokwi / ESP32'den canlı veri geldiğinde bu fonksiyon çağrılır)
+// 3. UI-02 & ENTEGRASYON: VERİ GÜNCELLEME VE KART RENKLENDİRME
 // ---------------------------------------------------------
 function updateCRPData(crpValue, rawLux = '-') {
   const numericCRP = parseFloat(crpValue);
@@ -140,7 +134,6 @@ function updateCRPData(crpValue, rawLux = '-') {
   luxEl.textContent = rawLux;
   resultCard.classList.remove('state-normal', 'state-warning', 'state-danger');
 
-  // Hasta profili için Yeşil / Sarı / Kırmızı + Betül'ün 5.0 mg/L kritik eşiği
   let riskCategory = 'NORMAL';
 
   if (numericCRP >= 5.0) {
@@ -166,9 +159,12 @@ function updateCRPData(crpValue, rawLux = '-') {
     noteEl.textContent = 'CRP konsantrasyonu güvenli referans aralığındadır.';
   }
 
+  if (batteryLevel <= 15) {
+    noteEl.textContent += ' (Not: Cihaz pili kritik seviyede, şarja takın.)';
+  }
+
   logSerial(`Okunan Lux (Raw): ${rawLux} | Hesaplanan CRP: ${formattedCRP} mg/L -> ${riskCategory}`);
 
-  // Kayıt ekle ve grafiği güncelle
   const patientId = document.getElementById('patient-id').value || 'HST-2026-042';
   const nowStr = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
@@ -188,7 +184,6 @@ function updateCRPData(crpValue, rawLux = '-') {
 
 // ---------------------------------------------------------
 // 4. UI-04: SİMÜLATÖR KONTROL PANELİ (SLIDER & HATA SİMÜLASYONU)
-// Betül'ün formülü: map(ldrValue, 0, 4095, 150, 0)
 // ---------------------------------------------------------
 function ldrToCrp(ldr) {
   const crp = ((4095 - ldr) / 4095) * 150;
@@ -223,6 +218,12 @@ function syncFromLDR(ldrVal) {
 function simulateFault(type) {
   const badge = document.getElementById('connection-badge');
   const batEl = document.getElementById('battery-indicator');
+  const resultCard = document.getElementById('result-card');
+  const bannerEl = document.getElementById('status-banner');
+  const noteEl = document.getElementById('clinical-note');
+  const valueEl = document.getElementById('crp-value');
+
+  resultCard.classList.remove('state-normal', 'state-warning', 'state-danger');
 
   if (type === 'LOW_BATTERY') {
     deviceStatus = 'LOW_BATTERY';
@@ -230,12 +231,22 @@ function simulateFault(type) {
     badge.className = 'badge warning';
     badge.textContent = 'ESP32 Uyarı: Düşük Pil (%12)';
     batEl.textContent = 'Pil: %12 (Kritik)';
+    resultCard.classList.add('state-warning');
+    bannerEl.className = 'status-banner warning';
+    bannerEl.textContent = 'UYARI: DÜŞÜK PİL (%12) - CİHAZI ŞARJA TAKIN';
+    noteEl.textContent = 'Pil seviyesi kritik ancak son bir ölçüm yapabilirsiniz.';
     updateTopSummary('Düşük Pil Uyarısı');
     logSerial('[UYARI] Batarya seviyesi kritik (%12). Cihazi sarja baglayin.');
   } else if (type === 'SENSOR_ERROR') {
     deviceStatus = 'SENSOR_ERROR';
     badge.className = 'badge danger';
     badge.textContent = 'HATA: Optik Sensör (GPIO 34) Yok';
+    valueEl.textContent = 'ERR';
+    valueEl.style.color = '#dc2626';
+    resultCard.classList.add('state-danger');
+    bannerEl.className = 'status-banner danger';
+    bannerEl.textContent = 'CİHAZ HATASI: OPTİK SENSÖR OKUNAMIYOR (ERR-04)';
+    noteEl.textContent = 'Kaset yuvasını ve optik sensör bağlantısını kontrol edip cihazı sıfırlayın.';
     updateTopSummary('Sensör Hatası (ERR-04)');
     logSerial('[KRITIK HATA] LDR optik sensorunden sinyal alinamiyor! Kablolari kontrol edin.');
   } else {
@@ -244,6 +255,11 @@ function simulateFault(type) {
     badge.className = 'badge online';
     badge.textContent = 'ESP32 Simülasyon: Hazır';
     batEl.textContent = 'Pil: %92';
+    valueEl.textContent = '--.-';
+    valueEl.style.color = '#0284c7';
+    bannerEl.className = 'status-banner neutral';
+    bannerEl.textContent = 'DURUM: ÖLÇÜM BEKLENİYOR';
+    noteEl.textContent = 'Cihaz sıfırlandı. Ölçümü başlatmak için yukarıdaki butona basın.';
     updateTopSummary('Kaset Takılı - Hazır');
     logSerial('[BILGI] Cihaz sifirlandi. Normal calisma moduna donuldu.');
   }

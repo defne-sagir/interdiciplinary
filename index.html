@@ -54,7 +54,7 @@
 
     <!-- 2. ORTA BÖLÜM: ÖLÇÜM EKRANI + MERKEZDE WOKWI SİMÜLASYONU -->
     <section class="center-workspace">
-      <!-- SOL: UI-01 ÖLÇÜM BAŞLATMA & UI-02 SONUÇ KARTI -->
+      <!-- SOL / MERKEZ: UI-01 ÖLÇÜM BAŞLATMA & UI-02 SONUÇ KARTI -->
       <div class="card result-card" id="result-card">
         <div class="card-header">
           <h3>CRP Ölçüm & Sonuç Ekranı</h3>
@@ -88,7 +88,7 @@
         </div>
 
         <p id="clinical-note" class="clinical-note">
-          Ölçümü başlatmak için yukarıdaki butona veya ortadaki Wokwi devresindeki yeşil butona basın.
+          Ölçümü başlatmak için yukarıdaki butona basın.
         </p>
 
         <!-- Doktor & Test Ekibi İçin Teknik Metrikler -->
@@ -99,8 +99,8 @@
         </ul>
       </div>
 
-      <!-- ORTA: WOKWI ESP32 DONANIM SİMÜLASYONU -->
-      <div class="card wokwi-card">
+      <!-- ORTA: WOKWI ESP32 DONANIM SİMÜLASYONU (Hasta modunda gizlenir) -->
+      <div class="card wokwi-card only-tester">
         <div class="card-header">
           <h3>Canlı ESP32 & OLED Donanım Simülasyonu (Wokwi)</h3>
           <a href="https://wokwi.com/projects/478970934070449153" target="_blank" class="unit">Tam Ekran Aç ↗</a>
