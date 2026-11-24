@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImmunoTwin | Point-of-Care CRP Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <div>
+        <h1>ImmunoTwin</h1>
+        <span>Mikroakışkan POC Biyosensör Dijital İkizi</span>
+      </div>
+    </div>
+    <div class="device-status">
+      <span id="connection-badge" class="badge online">ESP32 Simülasyon: Hazır</span>
+      <span id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card patient-card">
+      <h2>Aktif Test Bilgileri</h2>
+      <div class="form-grid">
+        <div class="input-group">
+          <label>Hasta Adı / ID</label>
+          <input type="text" id="patient-id" value="HST-2026-042" placeholder="Hasta Kodu">
+        </div>
+        <div class="input-group">
+          <label>Kaset Lot No</label>
+          <input type="text" id="cassette-id" value="CRP-OPT-09" readonly>
+        </div>
+        <div class="input-group">
+          <label>Cihaz Durumu</label>
+          <input type="text" id="device-state" value="Kaset Takılı - Ölçüme Hazır" readonly>
+        </div>
+      </div>
+    </section>
+
+    <section class="dashboard-grid">
+      <div class="card result-card" id="result-card">
+        <div class="card-header">
+          <h3>Kantitatif CRP Konsantrasyonu</h3>
+          <span class="unit">Referans Eşik: &lt; 5.0 mg/L</span>
+        </div>
+
+        <div class="value-display">
+          <span id="crp-value">--.-</span>
+          <span class="mg-unit">mg/L</span>
+        </div>
+
+        <div id="status-banner" class="status-banner neutral">
+          DURUM: ÖLÇÜM BEKLENİYOR
+        </div>
+
+        <p id="clinical-note" class="clinical-note">
+          Cihaz üzerindeki butona basarak veya aşağıdaki test simülasyonu ile ölçümü başlatın.
+        </p>
+      </div>
+
+      <div class="card metrics-card">
+        <h3>Klinik &amp; Sensör Metrikleri</h3>
+        <ul class="metric-list">
+          <li>
+            <span>Sensör Tipi:</span>
+            <strong>Optik (Lateks Bulanıklık / LDR)</strong>
+          </li>
+          <li>
+            <span>Ham Optik Okuma (Lux):</span>
+            <strong id="raw-lux">-</strong>
+          </li>
+          <li>
+            <span>Test Süresi (Hedef &lt; 60 sn):</span>
+            <strong id="test-duration">1.5 sn</strong>
+          </li>
+          <li>
+            <span>Veri İletim Gecikmesi (Hedef &lt; 2 sn):</span>
+            <strong id="latency">0.2 sn</strong>
+          </li>
+        </ul>
+
+        <div class="demo-controls">
+          <p>Arayüz Ön İzleme (Manuel Veri Gönder):</p>
+          <div class="btn-row">
+            <button onclick="updateCRPData(2.4, 3450)" class="btn btn-normal">Normal Test (2.4 mg/L)</button>
+            <button onclick="updateCRPData(18.7, 1200)" class="btn btn-danger">Yüksek Risk (18.7 mg/L)</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card history-card">
+      <h3>Son Klinik Ölçüm Kayıtları</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Saat</th>
+            <th>Hasta Kodu</th>
+            <th>CRP Değeri (mg/L)</th>
+            <th>Klinik Sınıflandırma</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
